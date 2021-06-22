@@ -8,6 +8,7 @@
 #include <float.h>
 
 #include "math.h"
+#include "geometry.h"
 
 #include <iostream>
 
@@ -36,8 +37,8 @@ inline float distance_to_plane(const sVector3 point, const sVector3 plane_normal
     dot_prod(point, plane_normal);
 }
 
-int OBB_faces_indexing[][] = {
-    { 0, 1, 2, 3},
+int OBB_faces_indexing[6][4] = {
+    {0, 1, 2, 3},
     {6, 7, 3, 1},
     {2, 3, 7, 5},
     {5, 4, 7, 6},
@@ -45,10 +46,19 @@ int OBB_faces_indexing[][] = {
     {5, 4, 2, 0}
 };
 
+int OBB_planes_indexing[6][4] = {
+    {1, 2, 4, 5}, // face 0
+    {4, 3, 2, 0}, // face 1
+    {5, 3, 1, 0}, // face 2
+    {5, 4, 7, 6}, // face 3
+    {3, 5, 0, 1}, // face 4
+    {4, 2, 3, 0}  // face 5
+};
+
 sVector3 OBB_normal_faces[] = {
     { 0.0f, 0.0f, -1.0f},
     { 1.0f, 0.0f, 0.0f},
-    {0.0f, 1.0f, 0.0f},
+    { 0.0f, 1.0f, 0.0f},
     { 0.0f, 0.0f, 1.0f},
     { 0.0f, -1.0f, 0.0f},
     {-1.0f, 0.0f, 0.0f}
@@ -58,11 +68,11 @@ inline sVector3 get_point_in_face(const sVector3 *raw_vertex, const int face_id,
     return raw_vertex[ OBB_faces_indexing[face_id][vertex_num] ];
 }
 
-inline int get_closest_point_to_face(int face_id, sVector3 *obj_1, sVector3 *obj_2, ) {
+inline int get_closest_point_to_face(int face_id, sVector3 *obj_1, sVector3 *obj_2) {
 
 
     for (int i = 0; i < 6; i++) {
-        sVector3 norm = rotate_vector3(sVector3{1.0f, 0.0f, 0.0f}, obb1_rotation);
+        //sVector3 norm = rotate_vector3(sVector3{1.0f, 0.0f, 0.0f}, obb1_rotation);
     }
 }
 
@@ -74,6 +84,23 @@ inline bool sat_test(const sVector3 obb1_origin,
                           const sQuaternion4 obb2_rotation) {
     
 
+}
+
+inline sPlane get_plane_from_obb(const sVector3 *vertex_list, const sVector3 *normal_list, const int face_id) {
+    sPlane new_plane;
+    sVector3 p1 = vertex_list[OBB_faces_indexing[face_id][0]];
+    sVector3 p2 = vertex_list[OBB_faces_indexing[face_id][1]];
+    sVector3 p3 = vertex_list[OBB_faces_indexing[face_id][2]];
+    sVector3 p4 = vertex_list[OBB_faces_indexing[face_id][3]];
+
+    new_plane.origin_point = sVector3{
+        (p1.x + p2.x + p3.x + p4.x) / 4.0f,
+        (p1.y + p2.y + p3.y + p4.y) / 4.0f,
+        (p1.z + p2.z + p3.z + p4.z) / 4.0f
+    };
+    new_plane.normal = normal_list[face_id];
+
+    return new_plane;
 }
 
 
@@ -106,7 +133,7 @@ inline bool intersect_vertex_group_on_axis(const sVector3 obb1[8],
 
     *diff = sum - total_span;
 
-    std::cout << *diff << std::endl;
+    //std::cout << *diff << std::endl;
 
     return sum >= total_span;
 }
@@ -122,8 +149,6 @@ inline bool SAT_OBB_v_OBB(const sVector3 obb1_origin,
     sVector3 obb2_vertex[8] = {};
 
     sVector3 col_normal{};
-    sVector3 col_normal1{};
-    sVector3 col_normal2{};
     
     get_OBB_raw_vertex(obb1_origin,
                        obb1_sizes,
@@ -134,264 +159,161 @@ inline bool SAT_OBB_v_OBB(const sVector3 obb1_origin,
                        obb2_rotation,
                        &obb2_vertex[0]);
 
-    sVector3 norm1_x = rotate_vector3(sVector3{1.0f, 0.0f, 0.0f}, obb1_rotation);
-    sVector3 norm1_y = rotate_vector3(sVector3{0.0f, 1.0f, 0.0f}, obb1_rotation);
-    sVector3 norm1_z = rotate_vector3(sVector3{0.0f, 0.0f, 1.0f}, obb1_rotation);
-    sVector3 norm2_x = rotate_vector3(sVector3{1.0f, 0.0f, 0.0f}, obb2_rotation);
-    sVector3 norm2_y = rotate_vector3(sVector3{0.0f, 1.0f, 0.0f}, obb2_rotation);
-    sVector3 norm2_z = rotate_vector3(sVector3{0.0f, 0.0f, 1.0f}, obb2_rotation);
+    sVector3 norms_1[] = {
+        rotate_vector3(sVector3{1.0f, 0.0f, 0.0f}, obb1_rotation),
+        rotate_vector3(sVector3{0.0f, 1.0f, 0.0f}, obb1_rotation),
+        rotate_vector3(sVector3{0.0f, 0.0f, 1.0f}, obb1_rotation),
 
-    float min_diff = 200.0f;
-    float diff = 202.0f;
-    float min_diff1 = 200.0f;
-    float diff1 = 2002.0f;
-    float min_diff2 = 200.0f;
-    float diff2 = 2002.0f;
+        rotate_vector3(sVector3{-1.0f, 0.0f, 0.0f}, obb1_rotation),
+        rotate_vector3(sVector3{0.0f, -1.0f, 0.0f}, obb1_rotation),
+        rotate_vector3(sVector3{0.0f, 0.0f, -1.0f}, obb1_rotation),
+        };
+
+    sVector3 norms_2[] = {
+        rotate_vector3(sVector3{1.0f, 0.0f, 0.0f}, obb2_rotation),
+        rotate_vector3(sVector3{0.0f, 1.0f, 0.0f}, obb2_rotation),
+        rotate_vector3(sVector3{0.0f, 0.0f, 1.0f}, obb2_rotation),
+
+        rotate_vector3(sVector3{-1.0f, 0.0f, 0.0f}, obb2_rotation),
+        rotate_vector3(sVector3{0.0f, -1.0f, 0.0f}, obb2_rotation),
+        rotate_vector3(sVector3{0.0f, 0.0f, -1.0f}, obb2_rotation),
+        };
+
+    float min_diff = FLT_MAX;
+    float diff = FLT_MAX;
     int col_case = -1;
-    int col_case1 = -1;
-    int col_case2 = -1;
-    if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                       obb2_vertex,
-                                       norm1_x,
-                                       &diff)) {
-        return false;
+
+    // Test all axis, since we need the face too
+    // Test normals of OBB1
+    for (int i = 0; i < 6; i++) {
+        if(!intersect_vertex_group_on_axis(obb1_vertex,
+                                        obb2_vertex,
+                                        norms_1[i],
+                                        &diff)) {
+            return false;
+        }
+
+        if (min_diff > diff) {
+            col_normal = norms_1[i];
+            min_diff = diff;
+            col_case = i;
+        }
     }
 
-    if (min_diff1 > diff) {
-        col_normal1 = norm1_x;
-        min_diff1 = diff;
-        col_case1 = 0;
+    // Test normals of OBB2
+    for (int i = 0; i < 6; i++) {
+        if(!intersect_vertex_group_on_axis(obb1_vertex,
+                                        obb2_vertex,
+                                        norms_1[i],
+                                        &diff)) {
+            return false;
+        }
+
+        if (min_diff > diff) {
+            col_normal = norms_1[i];
+            min_diff = diff;
+            col_case = i + 6;
+        }
     }
 
-    if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                       obb2_vertex,
-                                       norm1_y,
-                                       &diff)) {
-        return false;
-    }
+    // TODO: test corners
 
-    if (min_diff1 > diff) {
-        col_normal1 = norm1_y;
-        min_diff1 = diff;
-        col_case1 = 1;
-    }
-
-    if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                       obb2_vertex,
-                                       norm1_z,
-                                       &diff)) {
-        return false;
-    }
-
-    if (min_diff1 > diff) {
-        col_normal1 = norm1_z;
-        min_diff1 = diff;
-        col_case1 = 2;
-    }
-
-    
-     if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                       obb2_vertex,
-                                       norm2_x,
-                                       &diff)) {
-        return false;
-    }
-
-    if (min_diff2 > diff) {
-        col_normal2 = norm2_x;
-        min_diff2 = diff;
-        col_case2 = 3;
-    }
-
-    if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                       obb2_vertex,
-                                       norm2_y,
-                                       &diff)) {
-        return false;
-    }
-
-    if (min_diff2 > diff) {
-        col_normal2 = norm2_y;
-        min_diff2 = diff;
-        col_case = 4;
-    }
-
-    if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                       obb2_vertex,
-                                       norm2_z,
-                                       &diff)) {
-        return false;
-    }
-
-    if (min_diff2 > diff) {
-        col_normal2 = norm2_z;
-        min_diff2 = diff;
-        col_case = 5;
-    }
-
-
-
-    if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                       obb2_vertex,
-                                       cross_prod(norm1_x, norm2_x),
-                                       &diff)) {
-        std::cout << "6" << std::endl;
-        return false;
-    }
-
-    if (min_diff > diff) {
-        col_normal = cross_prod(norm1_x, norm2_x);
-        min_diff = diff;
-        col_case = 6;
-    }
-
-    if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                       obb2_vertex,
-                                       cross_prod(norm1_x, norm2_y),
-                                       &diff)) {
-        return false;
-    }
-
-    if (min_diff > diff) {
-        col_normal = cross_prod(norm1_x, norm2_y);
-        min_diff = diff;
-        col_case = 7;
-    }
-
-    if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                       obb2_vertex,
-                                       cross_prod(norm1_x, norm2_z),
-                                       &diff)) {
-        return false;
-    }
-
-    if (min_diff > diff) {
-        col_normal = cross_prod(norm1_x, norm2_z);
-        min_diff = diff;
-        col_case = 8;
-    }
-
-    if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                       obb2_vertex,
-                                       cross_prod(norm1_y, norm2_x),
-                                       &diff)) {
-        return false;
-    }
-
-    if (min_diff > diff) {
-        col_normal = cross_prod(norm1_y, norm2_x);
-        min_diff = diff;
-        col_case = 9;
-    }
-
-    if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                       obb2_vertex,
-                                       cross_prod(norm1_y, norm2_y),
-                                       &diff)) {
-        return false;
-    }
-
-    if (min_diff > diff) {
-        col_normal = cross_prod(norm1_y, norm2_y);
-        min_diff = diff;
-        col_case = 10;
-    }
-
-    if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                       obb2_vertex,
-                                       cross_prod(norm1_y, norm2_z),
-                                       &diff)) {
-        return false;
-    }
-
-    if (min_diff > diff) {
-        col_normal = cross_prod(norm1_y, norm2_z);
-        min_diff = diff;
-        col_case = 11;
-    }
-
-    if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                       obb2_vertex,
-                                       cross_prod(norm1_z, norm2_x),
-                                       &diff)) {
-        return false;
-    }
-
-    if (min_diff > diff) {
-        col_normal = cross_prod(norm1_z, norm2_x);
-        min_diff = diff;
-        col_case = 12;
-    }
-
-    if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                       obb2_vertex,
-                                       cross_prod(norm1_z, norm2_y),
-                                       &diff)) {
-        return false;
-    }
-
-    if (min_diff > diff) {
-        col_normal = cross_prod(norm1_z, norm2_y);
-        min_diff = diff;
-        col_case = 13;
-    }
-
-    if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                       obb2_vertex,
-                                       cross_prod(norm1_z, norm2_z),
-                                       &diff)) {
-        return false;
-    }
-
-    if (min_diff > diff) {
-        col_normal = cross_prod(norm1_z, norm2_z);
-        min_diff = diff;
-        col_case = 14;
-    }
 
     /// http://www.randygaul.net/2013/03/28/custom-physics-engine-part-2-manifold-generation/
 
-    std::cout << "A diff " << min_diff1 << " B diff " << min_diff2 << std::endl;
-    std::cout << " A Collision axis: " << col_normal1.x << " " << col_normal1.y << " " << col_normal1.z << std::endl;
-    std::cout << " B Collision axis: " << col_normal2.x << " " << col_normal2.y << " " << col_normal2.z << std::endl;
-    std::cout << "Collision axis: " << col_normal.x << " " << col_normal.y << " " << col_normal.z << std::endl;
-    std::cout << "Depth: " << min_diff << std::endl;
-    std::cout << col_case << std::endl;
+    sVector3 reference_face[4] = {};
+    sVector3 indent_face[4] = {};
 
-    if (col_case <= 2) {
-        // Face collision on object A
-        switch(col_case) {
-            case 0:
-            std::cout << obb1_vertex[1].x << " " << obb1_vertex[1].y << " " << obb1_vertex[1].z  << " ++ " << obb1_vertex[3].x << " " << obb1_vertex[3].y << " " << obb1_vertex[3].z  << " ++ " << obb1_vertex[6].x << " " << obb1_vertex[6].y << " " << obb1_vertex[6].z  << " ++ " << obb1_vertex[7].x << " " << obb1_vertex[7].y << " " << obb1_vertex[7].z  << std::endl;
-            break;
-            case 1:
-            std::cout << obb1_vertex[2].x << " " << obb1_vertex[2].y << " " << obb1_vertex[2].z  << " ++ " << obb1_vertex[3].x << " " << obb1_vertex[3].y << " " << obb1_vertex[3].z  << " ++ " << obb1_vertex[5].x << " " << obb1_vertex[5].y << " " << obb1_vertex[5].z  << " ++ " << obb1_vertex[7].x << " " << obb1_vertex[7].y << " " << obb1_vertex[7].z  << std::endl;
-            break;
-            case 2:
-            std::cout << obb1_vertex[4].x << " " << obb1_vertex[4].y << " " << obb1_vertex[4].z  << " ++ " << obb1_vertex[6].x << " " << obb1_vertex[6].y << " " << obb1_vertex[6].z  << " ++ " << obb1_vertex[5].x << " " << obb1_vertex[5].y << " " << obb1_vertex[5].z  << " ++ " << obb1_vertex[7].x << " " << obb1_vertex[7].y << " " << obb1_vertex[7].z  << std::endl;
-            break;
-        }
-    } else if (col_case >= 3 && col_case <= 5) {
-        // Face collision on object B
-        switch(col_case) {
-            case 3:
-            std::cout << obb2_vertex[1].x << " " << obb2_vertex[1].y << " " << obb2_vertex[1].z  << " ++ " << obb2_vertex[3].x << " " << obb2_vertex[3].y << " " << obb2_vertex[3].z  << " ++ " << obb2_vertex[6].x << " " << obb2_vertex[6].y << " " << obb2_vertex[6].z  << " ++ " << obb2_vertex[7].x << " " << obb2_vertex[7].y << " " << obb2_vertex[7].z  << std::endl;
-            break;
-            case 4:
-            std::cout << obb2_vertex[2].x << " " << obb2_vertex[2].y << " " << obb2_vertex[2].z  << " ++ " << obb2_vertex[3].x << " " << obb2_vertex[3].y << " " << obb2_vertex[3].z  << " ++ " << obb2_vertex[5].x << " " << obb2_vertex[5].y << " " << obb2_vertex[5].z  << " ++ " << obb2_vertex[7].x << " " << obb2_vertex[7].y << " " << obb2_vertex[7].z  << std::endl;
-            break;
-            case 5:
-            std::cout << obb2_vertex[4].x << " " << obb2_vertex[4].y << " " << obb2_vertex[4].z  << " ++ " << obb2_vertex[6].x << " " << obb2_vertex[6].y << " " << obb2_vertex[6].z  << " ++ " << obb2_vertex[5].x << " " << obb2_vertex[5].y << " " << obb2_vertex[5].z  << " ++ " << obb2_vertex[7].x << " " << obb2_vertex[7].y << " " << obb2_vertex[7].z  << std::endl;
-            break;
-        }
-    } else if (col_case > 6) {
+    int reference_face_index = 0;
+    int indent_face_index = -1;
 
+    // Get the Incident face
+    if (col_case < 6) {
+        // The reference face is on OBB1
+        float min_dot = FLT_MAX;
+        float dot = 0.f;
+
+        for(int i = 0; i < 6; i++) {
+            dot = dot_prod(col_normal, norms_2[i]);
+            if (dot < min_dot) {
+                min_dot = dot;
+                indent_face_index = i;
+            }
+        }
+
+        reference_face_index = col_case;
+
+        reference_face[0] = obb1_vertex[OBB_faces_indexing[reference_face_index][0]];
+        reference_face[1] = obb1_vertex[OBB_faces_indexing[reference_face_index][1]];
+        reference_face[2] = obb1_vertex[OBB_faces_indexing[reference_face_index][2]];
+        reference_face[3] = obb1_vertex[OBB_faces_indexing[reference_face_index][3]];
+
+        indent_face[0] = obb2_vertex[OBB_faces_indexing[indent_face_index][0]];
+        indent_face[1] = obb2_vertex[OBB_faces_indexing[indent_face_index][1]];
+        indent_face[2] = obb2_vertex[OBB_faces_indexing[indent_face_index][2]];
+        indent_face[3] = obb2_vertex[OBB_faces_indexing[indent_face_index][3]];
+
+    } else if (col_case < 12) {
+        // The reference face is on OBB2
+        float min_dot = FLT_MAX;
+        float dot = 0.0f;
+
+        for(int i = 0; i < 6; i++) {
+            dot = dot_prod(col_normal, norms_1[i]);
+            if (dot < min_dot) {
+                min_dot = dot;
+                indent_face_index = i;
+            }
+        }
+
+        reference_face_index = col_case - 6;
+
+        reference_face[0] = obb2_vertex[OBB_faces_indexing[reference_face_index][0]];
+        reference_face[1] = obb2_vertex[OBB_faces_indexing[reference_face_index][1]];
+        reference_face[2] = obb2_vertex[OBB_faces_indexing[reference_face_index][2]];
+        reference_face[3] = obb2_vertex[OBB_faces_indexing[reference_face_index][3]];
+
+        indent_face[0] = obb1_vertex[OBB_faces_indexing[indent_face_index][0]];
+        indent_face[1] = obb1_vertex[OBB_faces_indexing[indent_face_index][1]];
+        indent_face[2] = obb1_vertex[OBB_faces_indexing[indent_face_index][2]];
+        indent_face[3] = obb1_vertex[OBB_faces_indexing[indent_face_index][3]];
     }
+
+    sVector3 points[4] = {};
+    int index = 0;
+
+    sPlane refence_plane;
+
+    refence_plane.origin_point = sVector3{
+        (reference_face[0].x + reference_face[1].x + reference_face[2].x + reference_face[3].x) / 4.0f,
+        (reference_face[0].y + reference_face[1].y + reference_face[2].y + reference_face[3].y) / 4.0f,
+        (reference_face[0].z + reference_face[1].z + reference_face[2].z + reference_face[3].z) / 4.0f
+    };
+
+    refence_plane.normal = col_normal;
+
+    for(int i = 0; i < 4; i++) {
+        float dist = refence_plane.distance(indent_face[i]);
+        //std::cout << "Dist " << dist << std::endl;
+        if (dist <= 0.0f) {
+            //std::cout << "Col point " <<  indent_face[i].x << " " <<  indent_face[i].y << " " <<  indent_face[i].y << " " << std::endl;
+            points[index++] = indent_face[i];
+        }
+    }
+
+
 
     return true;
 }
 
 /*
+
+https://ia801303.us.archive.org/30/items/GDC2013Gregorius/GDC2013-Gregorius.pdf
+https://www.randygaul.net/2013/03/28/custom-physics-engine-part-2-manifold-generation/
+https://gamedevelopment.tutsplus.com/tutorials/understanding-sutherland-hodgman-clipping-for-physics-engines--gamedev-11917
+Numerical boutsness
+
+
 inline float get_axis_overlap(const float size1,
                               const float size2,
                               const float min_distance){

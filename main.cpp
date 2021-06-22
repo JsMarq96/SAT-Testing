@@ -6,8 +6,8 @@
 int main() {
     sVector3 scale {1.0f, 1.0f, 1.0f};
 
-    sVector3 pos1{0.050f, 0.f, 0.9f};
-    sQuaternion4 rot1{1.0f, 0.01f, 0.0f, 0.0f};
+    sVector3 pos1{0.050f, 0.f, 0.0f};
+    sQuaternion4 rot1{1.0f, 0.00f, 0.0f, 0.0f};
 
     sVector3 pos2{0.00f, 0.f, 0.0f};
     sQuaternion4 rot2{1.0f, 0.0f, 0.0f, 0.0f};
