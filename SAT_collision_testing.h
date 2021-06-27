@@ -10,83 +10,49 @@
 #include "math.h"
 #include "geometry.h"
 
-#include <iostream>
+#include "collision_types.h"
 
-inline void get_OBB_raw_vertex(const sVector3 obb_center,
-                               const sVector3 obb_size,
-                               const sQuaternion4 obb_rotation,
+
+inline void get_OBB_raw_vertex(const sMat44 transform,
                                sVector3 *result) {
     result[0] = sVector3{};
-    result[1] = {obb_size.x, 0.0f, 0.0f};
-    result[2] = {0.0f, obb_size.y, 0.0f};
-    result[3] = {obb_size.x, obb_size.y, 0.0f};
-    result[4] = {0.0f, 0.0f, obb_size.z};
-    result[5] = {0.0f, obb_size.y, obb_size.z};
-    result[6] = {obb_size.x, 0.0f, obb_size.z};
-    result[7] = {obb_size.x, obb_size.y, obb_size.z};
+    result[1] = {1.0f, 0.0f, 0.0f};
+    result[2] = {0.0f, 1.0f, 0.0f};
+    result[3] = {1.0f, 1.0f, 0.0f};
+    result[4] = {0.0f, 0.0f, 1.0f};
+    result[5] = {0.0f, 1.0f, 1.0f};
+    result[6] = {1.0f, 0.0f, 1.0f};
+    result[7] = {1.0f, 1.0f, 1.0f};
 
     for(int i = 0; i < 8; i++) {
-        result[i] = rotate_vector3(result[i], obb_rotation);
-        result[i] = { result[i].x + obb_center.x,
-                      result[i].y + obb_center.y,
-                      result[i].z + obb_center.z };
+        result[i] = transform.multiply(result[i]);
     }
 }
 
-inline float distance_to_plane(const sVector3 point, const sVector3 plane_normal) {
-    dot_prod(point, plane_normal);
-}
 
-int OBB_faces_indexing[6][4] = {
-    {0, 1, 2, 3},
-    {6, 7, 3, 1},
-    {2, 3, 7, 5},
-    {5, 4, 7, 6},
-    {4, 6, 0, 1},
-    {5, 4, 2, 0}
-};
-
+/*
 int OBB_planes_indexing[6][4] = {
-    {1, 2, 4, 5}, // face 0
-    {4, 3, 2, 0}, // face 1
-    {5, 3, 1, 0}, // face 2
-    {5, 4, 7, 6}, // face 3
-    {3, 5, 0, 1}, // face 4
-    {4, 2, 3, 0}  // face 5
+        {1, 2, 4, 5}, // face 0
+        {4, 3, 2, 0}, // face 1
+        {5, 3, 1, 0}, // face 2
+        {5, 4, 7, 6}, // face 3
+        {3, 5, 0, 1}, // face 4
+        {4, 2, 3, 0}  // face 5
 };
 
 sVector3 OBB_normal_faces[] = {
-    { 0.0f, 0.0f, -1.0f},
-    { 1.0f, 0.0f, 0.0f},
-    { 0.0f, 1.0f, 0.0f},
-    { 0.0f, 0.0f, 1.0f},
-    { 0.0f, -1.0f, 0.0f},
-    {-1.0f, 0.0f, 0.0f}
+        { 0.0f, 0.0f, -1.0f},
+        { 1.0f, 0.0f, 0.0f},
+        { 0.0f, 1.0f, 0.0f},
+        { 0.0f, 0.0f, 1.0f},
+        { 0.0f, -1.0f, 0.0f},
+        {-1.0f, 0.0f, 0.0f}
 };
 
-inline sVector3 get_point_in_face(const sVector3 *raw_vertex, const int face_id, const int vertex_num) {
-    return raw_vertex[ OBB_faces_indexing[face_id][vertex_num] ];
-}
 
-inline int get_closest_point_to_face(int face_id, sVector3 *obj_1, sVector3 *obj_2) {
-
-
-    for (int i = 0; i < 6; i++) {
-        //sVector3 norm = rotate_vector3(sVector3{1.0f, 0.0f, 0.0f}, obb1_rotation);
-    }
-}
-
-inline bool sat_test(const sVector3 obb1_origin,
-                          const sVector3 obb1_sizes,
-                          const sQuaternion4 obb1_rotation,
-                          const sVector3 obb2_origin,
-                          const sVector3 obb2_sizes,
-                          const sQuaternion4 obb2_rotation) {
-    
-
-}
-
-inline sPlane get_plane_from_obb(const sVector3 *vertex_list, const sVector3 *normal_list, const int face_id) {
+inline sPlane get_plane_from_obb(const sVector3 *vertex_list,
+                                 const sVector3 *normal_list,
+                                 const int face_id) {
     sPlane new_plane;
     sVector3 p1 = vertex_list[OBB_faces_indexing[face_id][0]];
     sVector3 p2 = vertex_list[OBB_faces_indexing[face_id][1]];
@@ -94,14 +60,14 @@ inline sPlane get_plane_from_obb(const sVector3 *vertex_list, const sVector3 *no
     sVector3 p4 = vertex_list[OBB_faces_indexing[face_id][3]];
 
     new_plane.origin_point = sVector3{
-        (p1.x + p2.x + p3.x + p4.x) / 4.0f,
-        (p1.y + p2.y + p3.y + p4.y) / 4.0f,
-        (p1.z + p2.z + p3.z + p4.z) / 4.0f
+            (p1.x + p2.x + p3.x + p4.x) / 4.0f,
+            (p1.y + p2.y + p3.y + p4.y) / 4.0f,
+            (p1.z + p2.z + p3.z + p4.z) / 4.0f
     };
     new_plane.normal = normal_list[face_id];
 
     return new_plane;
-}
+}*/
 
 
 inline bool intersect_vertex_group_on_axis(const sVector3 obb1[8],
@@ -139,45 +105,48 @@ inline bool intersect_vertex_group_on_axis(const sVector3 obb1[8],
 }
 
 
-inline bool SAT_OBB_v_OBB(const sVector3 obb1_origin,
-                          const sVector3 obb1_sizes,
+inline bool SAT_OBB_v_OBB(const sMat44 obb1_transform,
                           const sQuaternion4 obb1_rotation,
-                          const sVector3 obb2_origin,
-                          const sVector3 obb2_sizes,
-                          const sQuaternion4 obb2_rotation) {
+                          const sMat44 obb2_transform,
+                          const sQuaternion4 obb2_rotation,
+                          sCollisionManifold  *result_manifold) {
+    int OBB_faces_indexing[6][4] = {
+            {0, 1, 2, 3},
+            {6, 7, 3, 1},
+            {2, 3, 7, 5},
+            {5, 4, 7, 6},
+            {4, 6, 0, 1},
+            {5, 4, 2, 0}
+    };
     sVector3 obb1_vertex[8] = {};
     sVector3 obb2_vertex[8] = {};
 
     sVector3 col_normal{};
-    
-    get_OBB_raw_vertex(obb1_origin,
-                       obb1_sizes,
-                       obb1_rotation,
+
+    get_OBB_raw_vertex(obb1_transform,
                        &obb1_vertex[0]);
-    get_OBB_raw_vertex(obb2_origin,
-                       obb2_sizes,
-                       obb2_rotation,
+    get_OBB_raw_vertex(obb2_transform,
                        &obb2_vertex[0]);
 
     sVector3 norms_1[] = {
-        rotate_vector3(sVector3{1.0f, 0.0f, 0.0f}, obb1_rotation),
-        rotate_vector3(sVector3{0.0f, 1.0f, 0.0f}, obb1_rotation),
-        rotate_vector3(sVector3{0.0f, 0.0f, 1.0f}, obb1_rotation),
+            rotate_vector3(sVector3{1.0f, 0.0f, 0.0f}, obb1_rotation),
+            rotate_vector3(sVector3{0.0f, 1.0f, 0.0f}, obb1_rotation),
+            rotate_vector3(sVector3{0.0f, 0.0f, 1.0f}, obb1_rotation),
 
-        rotate_vector3(sVector3{-1.0f, 0.0f, 0.0f}, obb1_rotation),
-        rotate_vector3(sVector3{0.0f, -1.0f, 0.0f}, obb1_rotation),
-        rotate_vector3(sVector3{0.0f, 0.0f, -1.0f}, obb1_rotation),
-        };
+            rotate_vector3(sVector3{-1.0f, 0.0f, 0.0f}, obb1_rotation),
+            rotate_vector3(sVector3{0.0f, -1.0f, 0.0f}, obb1_rotation),
+            rotate_vector3(sVector3{0.0f, 0.0f, -1.0f}, obb1_rotation),
+    };
 
     sVector3 norms_2[] = {
-        rotate_vector3(sVector3{1.0f, 0.0f, 0.0f}, obb2_rotation),
-        rotate_vector3(sVector3{0.0f, 1.0f, 0.0f}, obb2_rotation),
-        rotate_vector3(sVector3{0.0f, 0.0f, 1.0f}, obb2_rotation),
+            rotate_vector3(sVector3{1.0f, 0.0f, 0.0f}, obb2_rotation),
+            rotate_vector3(sVector3{0.0f, 1.0f, 0.0f}, obb2_rotation),
+            rotate_vector3(sVector3{0.0f, 0.0f, 1.0f}, obb2_rotation),
 
-        rotate_vector3(sVector3{-1.0f, 0.0f, 0.0f}, obb2_rotation),
-        rotate_vector3(sVector3{0.0f, -1.0f, 0.0f}, obb2_rotation),
-        rotate_vector3(sVector3{0.0f, 0.0f, -1.0f}, obb2_rotation),
-        };
+            rotate_vector3(sVector3{-1.0f, 0.0f, 0.0f}, obb2_rotation),
+            rotate_vector3(sVector3{0.0f, -1.0f, 0.0f}, obb2_rotation),
+            rotate_vector3(sVector3{0.0f, 0.0f, -1.0f}, obb2_rotation),
+    };
 
     float min_diff = FLT_MAX;
     float diff = FLT_MAX;
@@ -187,9 +156,9 @@ inline bool SAT_OBB_v_OBB(const sVector3 obb1_origin,
     // Test normals of OBB1
     for (int i = 0; i < 6; i++) {
         if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                        obb2_vertex,
-                                        norms_1[i],
-                                        &diff)) {
+                                           obb2_vertex,
+                                           norms_1[i],
+                                           &diff)) {
             return false;
         }
 
@@ -203,9 +172,9 @@ inline bool SAT_OBB_v_OBB(const sVector3 obb1_origin,
     // Test normals of OBB2
     for (int i = 0; i < 6; i++) {
         if(!intersect_vertex_group_on_axis(obb1_vertex,
-                                        obb2_vertex,
-                                        norms_1[i],
-                                        &diff)) {
+                                           obb2_vertex,
+                                           norms_1[i],
+                                           &diff)) {
             return false;
         }
 
@@ -279,29 +248,30 @@ inline bool SAT_OBB_v_OBB(const sVector3 obb1_origin,
         indent_face[3] = obb1_vertex[OBB_faces_indexing[indent_face_index][3]];
     }
 
-    sVector3 points[4] = {};
     int index = 0;
 
     sPlane refence_plane;
 
     refence_plane.origin_point = sVector3{
-        (reference_face[0].x + reference_face[1].x + reference_face[2].x + reference_face[3].x) / 4.0f,
-        (reference_face[0].y + reference_face[1].y + reference_face[2].y + reference_face[3].y) / 4.0f,
-        (reference_face[0].z + reference_face[1].z + reference_face[2].z + reference_face[3].z) / 4.0f
+            (reference_face[0].x + reference_face[1].x + reference_face[2].x + reference_face[3].x) / 4.0f,
+            (reference_face[0].y + reference_face[1].y + reference_face[2].y + reference_face[3].y) / 4.0f,
+            (reference_face[0].z + reference_face[1].z + reference_face[2].z + reference_face[3].z) / 4.0f
     };
 
     refence_plane.normal = col_normal;
 
+    // Skip clipping for OBBs... Lets see how it goes
+
     for(int i = 0; i < 4; i++) {
         float dist = refence_plane.distance(indent_face[i]);
-        //std::cout << "Dist " << dist << std::endl;
         if (dist <= 0.0f) {
-            //std::cout << "Col point " <<  indent_face[i].x << " " <<  indent_face[i].y << " " <<  indent_face[i].y << " " << std::endl;
-            points[index++] = indent_face[i];
+            result_manifold->points_depth[index] = dist;
+            result_manifold->contact_points[index++] = indent_face[i];
         }
     }
 
-
+    result_manifold->contact_point_count = index;
+    result_manifold->collision_normal = col_normal;
 
     return true;
 }
